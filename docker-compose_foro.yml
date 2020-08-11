@@ -1,0 +1,146 @@
+version: '3.0'
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.7.1
+    container_name: elasticsearch
+    environment:
+     - discovery.type=single-node
+     - bootstrap.memory_lock=true # along with the memlock settings below, disables swapping
+##   http://localhost:9200/_nodes?filter_path=**.mlockall - Path to check if memory lock is enabled   
+     - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # minimum and maximum Java heap size, recommend setting both to 50% of system RAM. Default is 1GB
+##   http://localhost:9200/_nodes?filter_path=**.jvm - Path to check heap size (it differs from the information inside the container)
+#     - "ELASTIC_PASSWORD=changeme"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      memlock:
+        soft: -1
+        hard: -1
+    restart: on-failure    
+    volumes:
+      - elastic-data:/usr/share/elasticsearch/data
+#    mem_limit: 1g  
+    ports:
+      - 9200:9200
+      - 9300:9300 # required for Performance Analyzer
+#    networks:
+#      - elastic-net
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname==weiser"   
+      resources:
+          limits:
+           memory: 1g             
+  kibana:
+
+       
+    image: docker.elastic.co/kibana/kibana:7.7.1
+    container_name: kibana
+    ports:
+      - 9298:5601
+    expose:
+      - "5601"
+      - "9298"
+#    mem_limit: 2g     
+    healthcheck:
+      test: ["CMD", "curl", "-s", "-f", "http://localhost:5601/status"]
+      interval: 15s
+      timeout: 2s
+      retries: 10
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname==weiser"      
+      resources:
+          limits:
+           memory: 2g              
+#    environment:
+#      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+#    networks:
+#      - elastic-net
+  filebeat:
+  
+    user: root   
+    image: docker.elastic.co/beats/filebeat:7.7.1
+    command: filebeat -e -strict.perms=false
+#   command: setup 
+    container_name: filebeat
+#    environment:
+#      - output.elasticsearch.hosts=["elasticsearch:9200"] 
+#      - setup.kibana.host=kibana:5601
+    volumes:
+#      - "/home/dani/Documentos/TFM/ELK/logs/:/usr/share/filebeat/logs/"
+#      - "/var/lib/docker/containers/:/usr/share/filebeat/logs/"
+      - "/var/lib/docker/containers/:/var/lib/docker/containers/:ro"
+      - "./filebeat/filebeat.docker.yml:/usr/share/filebeat/filebeat.yml:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+#    mem_limit: 2g    
+# To overcome permission errors: $sudo chmod 666 /var/run/docker.sock
+#    networks:
+#      - elastic-net
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname==torcos"       
+      resources:
+          limits:
+           memory: 1g                  
+#  metricbeat:
+#    depends_on:
+#       elasticsearch: { condition: service_started }
+#       kibana: { condition: service_healthy }
+#       logstash: { condition: service_started }
+#    user: root   
+#    cap_add:
+#     - sys_ptrace
+#     - dac_read_search
+    
+#    image: docker.elastic.co/beats/metricbeat:7.7.1
+#    command: metricbeat -e -system.hostfs=/hostfs --strict.perms=false 
+##   command: setup 
+#    container_name: metricbeat
+##    environment:
+##      - output.elasticsearch.hosts=["elasticsearch:9200"] 
+##      - setup.kibana.host=kibana:5601
+#    volumes:
+#      - "/proc:/hostfs/proc:ro" 
+#      - "/sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro" 
+#      - "/:/hostfs:ro"
+#      - "./metricbeat/metricbeat.docker.yml:/usr/share/metricbeat/metricbeat.yml:ro"
+#      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+#    mem_limit: 2g    
+       
+      
+#    network_mode: "host"
+##      - default
+  logstash:
+
+    image: docker.elastic.co/logstash/logstash:7.7.1
+    container_name: logstash
+    environment:
+     - "LS_JAVA_OPTS=-Xmx512m -Xms512m"
+##     http://localhost:9600/_node?filter_path=**.jvm - Path to check heap init & max size
+    ports:
+     - "5000:5000"
+     - "5400:5400"
+     - "9600:9600"
+    volumes:
+      - "./logstash/pipeline/:/usr/share/logstash/pipeline/"
+      - "./logstash/config/:/usr/share/logstash/config/"
+#    mem_limit: 2g    
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname==weiser"    
+      resources:
+          limits:
+           memory: 2g                        
+volumes:
+  elastic-data:
+
+
+#networks:
+#  elastic-net:
+#   driver: bridge

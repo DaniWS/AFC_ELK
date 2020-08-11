@@ -1,0 +1,93 @@
+filebeat.config:
+  modules:
+    path: ${path.config}/modules.d/*.yml
+    reload.enabled: false
+
+## Hints enable 
+#filebeat.autodiscover:
+# providers:
+#    - type: docker
+#      hints.enabled: true
+      
+
+
+#setup.template.enabled: true
+#filebeat:
+#  inputs:
+#    - type: container
+#      paths:
+#        - '/usr/share/filebeat/*/*.log'
+#        - '/var/lib/docker/containers/*/*.log'
+
+##  Container input     
+#filebeat:
+#  inputs:
+#    - type: container
+#      paths: 
+#        - '/usr/share/filebeat/logs/*/*.log'
+#        - '/var/lib/docker/containers/*/*.log'
+
+## Simple autodiscover
+
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      templates:
+        - condition:
+            contains:
+              docker.container.image: rest
+          config:
+#            - type: log         
+            - type: container
+              paths:
+#                - /var/lib/docker/containers/*/*.log
+                - /var/lib/docker/containers/${data.docker.container.id}/*.log
+#              include_lines: ['^{']
+#              exclude_lines: ["^[0-9][a-zA-Z]"]
+#              exclude_lines: ["^\\s+[\\-`('.|_]"]  # drop asciiart lines     
+#              json.keys_under_root: true         
+#              json.add_error_key: true
+#              json.message_key: log
+#processors:
+#- add_cloud_metadata: ~
+processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+#      - decode_json_fields:
+#          fields: ["tata"]
+#          process_array: false
+#          max_depth: 1
+#         target: "log_mssg"
+#          overwrite_keys: false
+#          add_error_key: true
+#output.elasticsearch:
+#  hosts: ["http://elasticsearch:9200"]
+#  hosts: '${ELASTICSEARCH_HOSTS:elasticsearch:9200}'
+#  index: "filebeat-%{[agent.version]}-%{+yyyy.MM.dd}"
+#  username: '${ELASTICSEARCH_USERNAME:}'
+#  password: '${ELASTICSEARCH_PASSWORD:}'
+#setup.template.overwrite: true
+
+output.logstash:
+#  hosts: ["localhost:5044"]
+  hosts: ["logstash:5044"]
+ 
+
+setup.kibana:
+  host: '${KIBANA:kibana:5601}'
+setup.dashboards.enabled: true
+
+# If true and Kibana is not reachable at the time when dashboards are loaded,
+# it will retry to reconnect to Kibana instead of exiting with an error.
+setup.dashboards.retry.enabled: true
+
+# Duration interval between Kibana connection retries.
+setup.dashboards.retry.interval: 15s
+
+# Maximum number of retries before exiting with an error, 0 for unlimited retrying.
+setup.dashboards.retry.maximum: 5
+
+
+
+#output.logstash:
+#  hosts: ["127.0.0.1:5044"]
